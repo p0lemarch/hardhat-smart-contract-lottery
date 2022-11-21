@@ -121,7 +121,7 @@ const { developmentChains, networkConfig } = require("../../helper-hardhat-confi
 
           describe("fulfillRandomWords", function () {
               beforeEach(async function () {
-                  await raffle.enterRaffle({ value: entranceFee })
+                  await raffle.enterRaffle({ value: raffleEntranceFee })
                   await network.provider.send("evm_increaseTime", [interval.toNumber() + 1])
                   await network.provider.send("evm_mine")
               })
@@ -129,7 +129,64 @@ const { developmentChains, networkConfig } = require("../../helper-hardhat-confi
               it("can only be called after performUpkeep", async () => {
                   await expect(
                       vrfCoordinatorV2Mock.fulfillRandomWords(0, raffle.address)
-                  ).expect.to.be.revertedWith("nonexistend request")
+                  ).to.be.revertedWith("nonexistent request")
+                  await expect(
+                      vrfCoordinatorV2Mock.fulfillRandomWords(1, raffle.address)
+                  ).to.be.revertedWith("nonexistent request")
+              })
+              it("picks a winner, resets the lottery, and sends money", async () => {
+                  const additionalEntrants = 3
+                  const startingAccountIndex = 1 //deployer =0
+                  const accounts = await ethers.getSigners()
+                  for (
+                      let i = startingAccountIndex;
+                      i < startingAccountIndex + additionalEntrants;
+                      i++
+                  ) {
+                      const accountConnectedRaffle = raffle.connect(accounts[i])
+                      await accountConnectedRaffle.enterRaffle({ value: raffleEntranceFee })
+                  }
+                  const startingTimeStamp = await raffle.getLatestTimeStamp()
+
+                  //performUpkeep (mock being chainlink keepers)
+                  //fullfillRandomWords (mock being the Chainlink VRF)
+                  //we will have to wait for the fullfillRandomWords to be called
+                  //so set up a listener
+                  await new Promise(async (resolve, reject) => {
+                      raffle.once("WinnerPicked", async () => {
+                          console.log("Found the event!")
+                          try {
+                              const recentWinner = await raffle.getRecentWinner()
+                              const raffleState = await raffle.getRaffleState()
+                              const endingTimeStamp = await raffle.getLatestTimeStamp()
+                              const numPlayers = await raffle.getNumberOfPlayers()
+                              const winnerEndingBalance = await accounts[1].getBalance()
+
+                              assert.equal(numPlayers.toString(), "0")
+                              assert.equal(raffleState.toString(), "0")
+                              assert(endingTimeStamp > startingTimeStamp)
+                              assert.equal(
+                                  winnerEndingBalance.toString(),
+                                  winnerStartingBalance
+                                      .add(raffleEntranceFee.mul(additionalEntrants))
+                                      .add(raffleEntranceFee)
+                                      .toString()
+                              )
+                          } catch (e) {
+                              reject(e)
+                          }
+                          resolve()
+                      })
+                      //setting up the listener
+                      //here we will fire teh event and the listener will pick it up, and resolve
+                      const tx = await raffle.performUpkeep([])
+                      const txReceipt = await tx.wait(1)
+                      const winnerStartingBalance = await accounts[1].getBalance()
+                      await vrfCoordinatorV2Mock.fulfillRandomWords(
+                          txReceipt.events[1].args.requestId,
+                          raffle.address
+                      )
+                  })
               })
           })
       })

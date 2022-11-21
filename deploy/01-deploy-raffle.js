@@ -25,8 +25,8 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
 
         await vrfCoordinatorV2Mock.fundSubscription(subscriptionId, VRF_SUB_FUND_AMOUNT)
     } else {
-        vrfCoordinatorV2address = networkConfig[chainId][vrfCoordinatorV2]
-        subscriptionId = networkConfig[chainId][subscriptionId]
+        vrfCoordinatorV2address = networkConfig[chainId]["vrfCoordinatorV2"]
+        subscriptionId = networkConfig[chainId]["subscriptionId"]
     }
     const entranceFee = networkConfig[chainId]["entranceFee"]
     const gasLane = networkConfig[chainId]["gasLane"]
@@ -56,7 +56,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     }
     if (!developmentChains.includes(network.name) && process.env.ETHERSCAN_API_KEY) {
         log("Verifying ...")
-        await verify(raffle.address, args)
+        await verify(raffle.address, arguments)
     }
     log("------------------------------")
 }

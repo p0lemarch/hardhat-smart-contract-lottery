@@ -26,6 +26,7 @@ module.exports = {
             accounts: [PRIVATE_KEY],
             chainId: 5,
             blockConfirmations: 6,
+            saveDeployments: true,
         },
     },
     solidity: "0.8.4",
@@ -42,6 +43,14 @@ module.exports = {
         },
         player: {
             default: 1,
+        },
+    },
+    mocha: {
+        timeout: 4000000,
+    },
+    etherscan: {
+        apiKey: {
+            goerli: ETHERSCAN_API_KEY,
         },
     },
 }
